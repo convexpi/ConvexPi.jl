@@ -78,13 +78,15 @@ Connect to the Arena and trade. Each tick you receive a market `state` (a NamedT
 prices in cents) and `on_tick(state)` returns a vector of orders built with `arena_limit`,
 `arena_market_order`, `arena_cancel` (empty vector = do nothing). Runs `max_ticks` ticks, returns a
 telemetry vector of `(tick, pnl, position, mid, last_price)` (prices in dollars). Reconnect with the
-same `agent_id` to keep your position and cash.
+same `agent_id` and `reconnect_token` to keep your position and cash. Use `on_welcome` to
+store the returned credential privately for the next connection.
 """
-function run_agent(on_tick; agent_id, server = ARENA_DEFAULT_SERVER, max_ticks = 200, on_fill = nothing)
+function run_agent(on_tick; agent_id, server = ARENA_DEFAULT_SERVER, max_ticks = 200, on_fill = nothing, reconnect_token = nothing, on_welcome = nothing)
     telem = NamedTuple[]
     HTTP.WebSockets.open(server) do ws
-        HTTP.WebSockets.send(ws, JSON.json(Dict("type" => "join", "agent_id" => agent_id)))
+        HTTP.WebSockets.send(ws, JSON.json(Dict("type" => "join", "agent_id" => agent_id, "reconnect_token" => reconnect_token)))
         welcome = JSON.parse(String(HTTP.WebSockets.receive(ws)))
+        isnothing(on_welcome) || on_welcome(welcome)
         @info "Connected to Arena" agent_id tick_interval = get(welcome, "tick_interval", nothing) response_deadline = get(welcome, "response_deadline", nothing)
         n = 0
         for raw in ws
